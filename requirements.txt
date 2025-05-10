@@ -1,0 +1,6 @@
+discord
+beautifulsoup4
+pytz
+python-dateutil
+requests
+html5lib

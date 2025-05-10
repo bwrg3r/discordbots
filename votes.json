@@ -1,0 +1,29 @@
+{
+    "2570": {
+        "poll_id": 1326038051385905204,
+        "name": "UofTCTF 2025",
+        "url": "https://ctf.uoftctf.org/",
+        "votesyes": 2,
+        "votesno": 0,
+        "participants": [
+            {
+                "id": 861158345842884638,
+                "username": "w_11_xuan",
+                "displayname": "weixuan"
+            },
+            {
+                "id": 1243875897304682579,
+                "username": "bakayango_70395",
+                "displayname": "bakayang"
+            }
+        ]
+    },
+    "2615": {
+        "poll_id": 1331949451278942228,
+        "name": "HackDay 2025 - Qualifications",
+        "url": "https://hackday.fr/",
+        "votesyes": 0,
+        "votesno": 0,
+        "participants": []
+    }
+}
