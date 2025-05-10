@@ -1,13 +1,15 @@
 import requests
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 import discord
 from discord import app_commands
 import pytz
+import aiohttp
 from dateutil.relativedelta import relativedelta
 from bs4 import BeautifulSoup
 import asyncio
 import os
+import random
 import logging
 from typing import List, Dict, Optional  # Import typing modules for compatibility
 
@@ -25,7 +27,7 @@ tree = app_commands.CommandTree(client)
 # Constants
 whitelist = [861158345842884638, 712179834700431440, 277479464621965313, 
              521724336499851267, 372975036669362188, 691010113535869028, 373372334603501578]
-ANNOUNCEMENT_CHANNELS = [1318209002097610857, 1236636005902319697]
+ANNOUNCEMENT_CHANNELS = [1318209002097610857]
 channel_messages: Dict[int, Dict[str, int]] = {}
 file_lock = asyncio.Lock()
 
@@ -159,6 +161,13 @@ React with 👍 to gain access."""
                     channel_messages[announce_msg.id] = {'channel_id': channel.id, 'role_id': ctf_role.id}
             
             await save_channel_messages()  # Persist channel_messages
+            
+            # Send DM to user about channel creation
+            try:
+                await interaction.user.send(f"✅ New channel created: **{ctf_name}**")
+            except discord.Forbidden:
+                pass  # Unable to DM user
+                
             await interaction.response.send_message(f"✅ Created channel for **{ctf_name}**", ephemeral=True)
             
         except Exception as e:
@@ -166,83 +175,72 @@ React with 👍 to gain access."""
     else:
         await interaction.response.send_message("❌ Not authorized", ephemeral=True)
 
-@tree.command(name="upcoming", description="Get the upcoming CTF events in the next 25 days.")
+async def fetch_upcoming_events():
+    start = int(datetime.now().timestamp())
+    end = int((datetime.now() + timedelta(weeks=2)).timestamp())
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36"
+                      "(KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36"
+    }
+    async with aiohttp.ClientSession() as session:
+        async with session.get(
+            f'https://ctftime.org/api/v1/events/?limit=5&start={start}&finish={end}',
+            headers=headers
+        ) as response:
+            return await response.json() if response.status == 200 else None
+
+@tree.command(name="upcoming", description="Get the upcoming CTF events in the next 2 weeks.")
 async def upcoming(interaction: discord.Interaction):
     try:
-        # Defer the response to avoid interaction timeout (now public)
-        await interaction.response.defer()  # Removed ephemeral=True
-
+        await interaction.response.defer()
+        
+        # Fetch up to 10 events
+        start = int(datetime.now().timestamp())
+        end = int((datetime.now() + timedelta(weeks=2)).timestamp())
         headers = {
             "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36"
-                          "(KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36"
+                         "(KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36"
         }
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                f'https://ctftime.org/api/v1/events/?limit=10&start={start}&finish={end}',
+                headers=headers
+            ) as response:
+                events = await response.json() if response.status == 200 else None
 
-        # Calculate the time range (now to 25 days from now)
-        now = datetime.utcnow().timestamp()
-        twenty_five_days = datetime.utcnow() + relativedelta(days=+25)
-        twenty_five_days = twenty_five_days.timestamp()
-
-        # Fetch CTF events from the API
-        r = requests.get(
-            "https://ctftime.org/api/v1/events/?limit=100"
-            + "&start=" + str(int(now))
-            + "&finish=" + str(int(twenty_five_days)),
-            headers=headers,
-        )
-        r.raise_for_status()
-        data = r.json()
-
-        if not data:
-            await interaction.followup.send("No upcoming CTF events found in the next 25 days.")
+        if not events:
+            await interaction.followup.send("No upcoming CTF events found.")
             return
 
-        # Ensure at least 10 events are displayed
-        events_to_display = data[:10]  # Show the first 10 events
-
-        # Create an embed for the events
-        embed = discord.Embed(
-            title="🚩 Upcoming CTF Events (Next 25 Days)",
-            description="Here are the upcoming CTF events:",
-            color=discord.Color.blue()
-        )
-        embed.set_thumbnail(url="https://ctftime.org/static/images/ct/logo.png")  # CTFtime logo
-        embed.set_footer(text="Powered by CTFtime.org")
-
-        # Add each event to the embed
-        for event in events_to_display:
-            event_title = event["title"]
-            event_url = event["url"]
-            event_start = event["start"]
-            event_end = event["finish"]
-            event_format = event["format"]
-            event_id = event["id"]
-
-            # Parse start and end times
-            event_start = datetime.strptime(event_start, "%Y-%m-%dT%H:%M:%S%z")
-            event_end = datetime.strptime(event_end, "%Y-%m-%dT%H:%M:%S%z")
-            duration = event_end - event_start
-
-            # Format duration
-            days, seconds = duration.days, duration.seconds
-            hours = seconds // 3600
-            minutes = (seconds % 3600) // 60
-            duration_str = f"{days}d {hours}h {minutes}m" if days > 0 else f"{hours}h {minutes}m"
-
-            # Add event details to the embed
-            embed.add_field(
-                name=f"🔹 {event_title}",
-                value=(
-                    f"**ID:** {event_id}\n"
-                    f"**Format:** {event_format}\n"
-                    f"**Start:** <t:{int(event_start.timestamp())}:f>\n"
-                    f"**Duration:** {duration_str}\n"
-                    f"**Link:** [Event Page]({event_url})"
-                ),
-                inline=False
+        embeds = []
+        for event in events:
+            start_time = datetime.strptime(event['start'], "%Y-%m-%dT%H:%M:%S%z")
+            end_time = datetime.strptime(event['finish'], "%Y-%m-%dT%H:%M:%S%z")
+            duration = end_time - start_time
+            duration_str = f"{duration.days}d {duration.seconds//3600}h"
+            
+            embed = discord.Embed(
+                title=event['title'],
+                color=random.randint(0, 0xFFFFFF)
             )
-
-        # Send the embed as a follow-up message (public)
-        await interaction.followup.send(embed=embed)
+            
+            description = (
+                f"**Event ID:** {event['id']}\n"
+                f"**Weight:** {event['weight']}\n"
+                f"**Duration:** {duration_str}\n"
+                f"**Start Time:** {start_time.strftime('%Y-%m-%d %H:%M:%S')} UTC\n"
+                f"**End Time:** {end_time.strftime('%Y-%m-%d %H:%M:%S')} UTC\n"
+                f"**Format:** {event['format']}\n"
+                f"**[More Info]({event['url']})**"
+            )
+            embed.description = description
+            
+            if event.get('logo'):
+                embed.set_thumbnail(url=event['logo'])
+                
+            embeds.append(embed)
+            
+        await interaction.followup.send(embeds=embeds)
 
     except requests.RequestException as e:
         await interaction.followup.send(f"❌ Error fetching CTF events: {str(e)}")
@@ -522,15 +520,9 @@ async def on_ready():
 
 # Run the bot
 if __name__ == "__main__":
-    if not os.path.exists('token.token'):
-        logging.error("Error: token.token file not found!")
-        exit(1)
-        
-    with open("token.token", "r") as file:
-        token = file.read().strip()
-        
+    token = os.getenv('token')
     if not token:
-        logging.error("Error: Empty token!")
+        logging.error("Error: Discord token not found in secrets!")
         exit(1)
         
     client.run(token)
