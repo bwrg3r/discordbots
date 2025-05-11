@@ -6,3 +6,4 @@ requests
 html5lib
 aiohttp
 discord.py
+flask
