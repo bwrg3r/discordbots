@@ -4,3 +4,5 @@ pytz
 python-dateutil
 requests
 html5lib
+aiohttp
+discord.py
