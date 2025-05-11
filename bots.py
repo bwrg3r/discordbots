@@ -520,7 +520,7 @@ async def on_ready():
 
 # Run the bot
 if __name__ == "__main__":
-    token = os.environ('token')
+    token = os.environ['token']
     if not token:
         logging.error("Error: Discord token not found in secrets!")
         exit(1)
