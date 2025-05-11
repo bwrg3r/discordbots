@@ -87,7 +87,7 @@ async def ctf_name_autocomplete(interaction: discord.Interaction, current: str) 
         }
 
         now = datetime.utcnow().timestamp()
-        twenty_five_days = datetime.utcnow() + relativedelta(days=+25)
+        twenty_five_days = datetime.utcnow() + relativedelta(days=+50)
         twenty_five_days = twenty_five_days.timestamp()
 
         r = requests.get(
@@ -177,7 +177,7 @@ React with 👍 to gain access."""
 
 async def fetch_upcoming_events():
     start = int(datetime.now().timestamp())
-    end = int((datetime.now() + timedelta(weeks=2)).timestamp())
+    end = int((datetime.now() + timedelta(weeks=4)).timestamp())
     headers = {
         "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36"
                       "(KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36"
@@ -196,7 +196,7 @@ async def upcoming(interaction: discord.Interaction):
         
         # Fetch up to 10 events
         start = int(datetime.now().timestamp())
-        end = int((datetime.now() + timedelta(weeks=2)).timestamp())
+        end = int((datetime.now() + timedelta(weeks=4)).timestamp())
         headers = {
             "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36"
                          "(KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36"
